@@ -1,0 +1,43 @@
+{
+  "name": "Neuil-SMP-Wiki",
+  "pages": [
+    {
+      "path": "main/support",
+      "title": "Support",
+      "category": "main",
+      "description": ""
+    },
+    {
+      "path": "main/accueil",
+      "title": "Accueil",
+      "category": "main",
+      "description": ""
+    },
+    {
+      "path": "main/credits",
+      "title": "Crédits",
+      "category": "main",
+      "description": ""
+    },
+    {
+      "path": "support/unban",
+      "title": "Unban",
+      "category": "support",
+      "description": ""
+    },
+    {
+      "path": "support/testeur",
+      "title": "Testeur",
+      "category": "support",
+      "description": ""
+    }
+  ],
+  "templates": [],
+  "backBar": {
+    "on": true,
+    "text": "Retour à l’accueil",
+    "sub": "",
+    "image": "images/img-20260905-214119.jpg",
+    "target": "main/accueil"
+  }
+}

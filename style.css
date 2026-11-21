@@ -1,0 +1,103 @@
+/* style.css — appliqué à tout le wiki.
+   Variables : --bg (fond) --fg (texte) --ac (accent) --sf (surfaces) --bd (bordures)
+   Utilise tes classes dans une page :  ::: note warn ... :::   ou   [texte]{.badge}  */
+:root{--ac:#0f766e}
+.note{border-left:4px solid var(--ac);background:var(--sf);padding:8px 14px;border-radius:6px;margin:12px 0}
+.note.warn{border-left-color:#d97706}
+.note.danger{border-left-color:#c0392b}
+.carte{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin:4px;background:var(--sf);text-decoration:none;color:var(--fg)}
+.carte img{width:62px;height:62px;object-fit:contain}
+.carte-nom{font-weight:600;display:block}
+.carte-prix{color:#16a34a;display:block}
+.badge{background:var(--ac);color:#fff;padding:1px 8px;border-radius:99px;font-size:.85em}
+
+.hero-banner {
+  --hero-img: none;
+  position: relative;
+  width: 100%;
+  max-width: 1120px;
+  height: 310px;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 0 44px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  box-sizing: border-box;
+  background-color: #1e2025;
+  background-image:
+    linear-gradient(90deg, rgba(16, 17, 21, 0.88) 0%, rgba(16, 17, 21, 0.55) 45%, rgba(16, 17, 21, 0.1) 100%),
+    var(--hero-img);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.hero-content {
+  max-width: 520px;
+  z-index: 2;
+}
+
+.hero-title {
+  color: #ffffff;
+  font-size: 46px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin: 0 0 14px 0;
+}
+
+.hero-subtitle {
+  color: #e2e8f0;
+  font-size: 16px;
+  font-weight: 400;
+  margin: 0 0 26px 0;
+}
+
+.hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #993b37;
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 13px 20px;
+  border-radius: 7px;
+  transition: background-color 0.2s ease;
+}
+
+.hero-btn:hover {
+  background-color: #b04641;
+}
+
+@media (max-width: 640px) {
+  .hero-banner {
+    padding: 0 24px;
+    height: 280px;
+  }
+  .hero-title {
+    font-size: 34px;
+  }
+}
+
+.hero-btn2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: transparent;
+  border: 1.5px solid #ffffff;
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 13px 20px;
+  border-radius: 7px;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.hero-btn:hover2 {
+  transform: scale(1.04);
+  background-color: rgba(255, 255, 255, 0.12);
+}
