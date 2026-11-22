@@ -1,27 +1,75 @@
 /* style.css — appliqué à tout le wiki.
    Variables : --bg (fond) --fg (texte) --ac (accent) --sf (surfaces) --bd (bordures)
    Utilise tes classes dans une page :  ::: note warn ... :::   ou   [texte]{.badge}  */
-:root{--ac:#0f766e}
-.note{border-left:4px solid var(--ac);background:var(--sf);padding:8px 14px;border-radius:6px;margin:12px 0}
-.note.warn{border-left-color:#d97706}
-.note.danger{border-left-color:#c0392b}
-.carte{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin:4px;background:var(--sf);text-decoration:none;color:var(--fg)}
-.carte img{width:62px;height:62px;object-fit:contain}
-.carte-nom{font-weight:600;display:block}
-.carte-prix{color:#16a34a;display:block}
-.badge{background:var(--ac);color:#fff;padding:1px 8px;border-radius:99px;font-size:.85em}
+:root {
+  --ac: #0f766e;
+}
 
+.note {
+  border-left: 4px solid var(--ac);
+  background: var(--sf, rgba(255, 255, 255, 0.04));
+  padding: 8px 14px;
+  border-radius: 6px;
+  margin: 12px 0;
+}
+
+.note.warn {
+  border-left-color: #d97706;
+}
+
+.note.danger {
+  border-left-color: #c0392b;
+}
+
+.carte {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--bd, rgba(255, 255, 255, 0.14));
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 4px;
+  background: var(--sf, rgba(255, 255, 255, 0.04));
+  text-decoration: none;
+  color: var(--fg, inherit);
+}
+
+.carte img {
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+}
+
+.carte-nom {
+  font-weight: 600;
+  display: block;
+}
+
+.carte-prix {
+  color: #16a34a;
+  display: block;
+}
+
+.badge {
+  background: var(--ac);
+  color: #fff;
+  padding: 1px 8px;
+  border-radius: 99px;
+  font-size: 0.85em;
+}
+
+/* Bannière Hero */
 .hero-banner {
   --hero-img: none;
   position: relative;
   width: 100%;
   max-width: 1120px;
-  height: 310px;
+  min-height: 310px;
   border-radius: 12px;
   overflow: hidden;
   display: flex;
   align-items: center;
-  padding: 0 44px;
+  padding: 28px 44px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   box-sizing: border-box;
   background-color: #1e2025;
@@ -72,16 +120,6 @@
   background-color: #b04641;
 }
 
-@media (max-width: 640px) {
-  .hero-banner {
-    padding: 0 24px;
-    height: 280px;
-  }
-  .hero-title {
-    font-size: 34px;
-  }
-}
-
 .hero-btn2 {
   display: inline-flex;
   align-items: center;
@@ -97,7 +135,139 @@
   transition: transform 0.2s ease, background-color 0.2s ease;
 }
 
-.hero-btn:hover2 {
+.hero-btn2:hover {
   transform: scale(1.04);
   background-color: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 640px) {
+  .hero-banner {
+    padding: 24px;
+    min-height: 280px;
+  }
+
+  .hero-title {
+    font-size: 34px;
+  }
+}
+
+/* Bloc Crédits */
+.credits-box,
+.credit-person {
+  --box-accent: var(--ac, #0f766e);
+}
+
+.credits-box {
+  background: var(--sf, #15171c);
+  border: 1px solid var(--bd, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
+  color: var(--fg, #f3f4f6);
+}
+
+.credits-header {
+  margin-bottom: 18px;
+}
+
+.credits-title {
+  margin: 0 0 6px 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.credits-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+.credits-cat-title {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--fg, #f3f4f6);
+}
+
+.credits-box hr {
+  border: 0;
+  border-top: 1px solid var(--bd, rgba(255, 255, 255, 0.12));
+  margin: 22px 0;
+}
+
+.credits-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.credit-person {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--bd, rgba(255, 255, 255, 0.1));
+  border-radius: 10px;
+  padding: 12px 14px;
+  transition: border-color 0.2s ease;
+}
+
+.credit-person:hover {
+  border-color: var(--box-accent);
+}
+
+.credit-person .badge {
+  background: var(--box-accent);
+}
+
+.credit-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--bd, rgba(255, 255, 255, 0.15));
+}
+
+.credit-info {
+  min-width: 0;
+}
+
+.credit-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.credit-name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.credit-desc {
+  margin: 0;
+  font-size: 13px;
+  color: #cbd5e1;
+  line-height: 1.35;
+}
+
+.barre-degrade {
+  position: relative;
+  overflow: hidden;
+  background: var(--sf, #15171c);
+  border-radius: 8px;
+  padding: 14px 18px 14px 22px;
+  color: var(--fg, #f3f4f6);
+}
+
+.barre-degrade::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 5px;
+  background: var(--bar-grad, linear-gradient(180deg, #107A06, #38bdf8));
 }
