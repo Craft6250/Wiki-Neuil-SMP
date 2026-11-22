@@ -39,5 +39,15 @@
     "sub": "",
     "image": "images/img-20260905-214119.jpg",
     "target": "main/accueil"
-  }
+  },
+  "links": [
+    {
+      "t": "Accueil",
+      "p": "main/accueil"
+    },
+    {
+      "t": "Support",
+      "p": "main/support"
+    }
+  ]
 }
