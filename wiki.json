@@ -30,6 +30,24 @@
       "title": "Testeur",
       "category": "support",
       "description": ""
+    },
+    {
+      "path": "support/regles",
+      "title": "Règles",
+      "category": "support",
+      "description": ""
+    },
+    {
+      "path": "support/moderator",
+      "title": "Modérateur",
+      "category": "support",
+      "description": ""
+    },
+    {
+      "path": "support/moderateur",
+      "title": "Modérateur",
+      "category": "support",
+      "description": ""
     }
   ],
   "templates": [],
@@ -37,7 +55,7 @@
     "on": true,
     "text": "Retour à l’accueil",
     "sub": "",
-    "image": "images/img-20260905-214119.jpg",
+    "image": "images/vorium-studio.png",
     "target": "main/accueil"
   },
   "links": [
@@ -48,6 +66,10 @@
     {
       "t": "Support",
       "p": "main/support"
+    },
+    {
+      "t": "Crédits",
+      "p": "main/credits"
     }
   ]
 }
