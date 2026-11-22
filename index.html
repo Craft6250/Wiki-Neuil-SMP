@@ -100,18 +100,29 @@ summary{cursor:pointer;font-size:1.2em;font-weight:600}
 .sd:hover,.sd.on{color:var(--ac);border-left-color:var(--ac)}
 .sd-au{font-size:16px;font-weight:600}.sd-box small{color:var(--mut)}
 main h1,main h2,main h3,main h4{scroll-margin-top:70px}
+header{flex-wrap:wrap}
+#site{font-size:17px;font-weight:700;color:var(--fg);text-decoration:none}
+#links{display:flex;gap:2px;flex-wrap:wrap}
+#links a{padding:4px 10px;border-radius:6px;color:var(--fg);text-decoration:none;white-space:nowrap}
+#links a:hover,#links a.on{background:var(--sf);color:var(--ac)}
 </style>
 <style id="custom"></style>
 </head>
 <body>
 <header>
-  <b id="site">Wiki</b>
+  <a id="site" href="#/">Wiki</a>
+  <span id="links"></span>
   <span id="tools" hidden><button id="open">📁 Ouvrir le dossier</button><a href="#/edit">✎ Éditeur</a></span>
   <input id="q" type="search" placeholder="Rechercher une page…">
 </header>
-<div id="layout"><nav id="nav"><div id="menu"></div></nav><aside id="side"></aside><main id="main"></main></div>
+<div id="layout"><aside id="side"></aside><main id="main"></main></div>
 <script>
 const $=s=>document.querySelector(s), main=$('#main');
+const LOCAL=location.protocol==='file:'||['localhost','127.0.0.1'].includes(location.hostname);
+const CLEAN=!LOCAL&&/^https?:$/.test(location.protocol);
+const BASE=CLEAN?'/':'';
+const curPath=()=>CLEAN?decodeURIComponent(location.pathname.replace(/^\/+|\/+$/g,'').replace(/^index\.html$/,'')):location.hash.slice(2);
+function fixLinks(root){if(CLEAN)root.querySelectorAll('a[href^="#/"]').forEach(a=>a.setAttribute('href',a.getAttribute('href').slice(1)))}
 const S={dir:null,ok:false,m:{name:'Mon Wiki',pages:[],templates:[]},cache:{},tpl:{},map:{},grid:{},tab:'page'};
 const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const slug=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
@@ -122,13 +133,13 @@ const find=k=>S.m.pages.find(p=>p.path===k)||S.m.pages.find(p=>p.path===k.toLowe
 async function getDir(path,create){let d=S.dir;const a=path.split('/');for(const p of a.slice(0,-1))d=await d.getDirectoryHandle(p,{create});return [d,a.at(-1)]}
 async function readText(p){
   if(S.dir){const [d,n]=await getDir(p);return (await (await d.getFileHandle(n)).getFile()).text()}
-  const r=await fetch(p+'?t='+Date.now());if(!r.ok)throw 0;return r.text()}
+  const r=await fetch(BASE+p+'?t='+Date.now());if(!r.ok||(/text\/html/.test(r.headers.get('content-type')||'')&&!/\.html?$/.test(p)))throw 0;return r.text()}
 async function writeFile(p,data){const [d,n]=await getDir(p,true);const w=await (await d.getFileHandle(n,{create:true})).createWritable();await w.write(data);await w.close()}
 async function fileURL(p){const [d,n]=await getDir(p);return URL.createObjectURL(await (await d.getFileHandle(n)).getFile())}
 async function fixImgs(root){
   for(const im of root.querySelectorAll('img[data-src]')){
     const p=im.dataset.src;im.referrerPolicy='no-referrer';
-    try{im.src=(/^https?:/.test(p)||!S.dir)?p:await fileURL(p)}catch{im.alt=im.alt||'Image introuvable : '+p}}}
+    try{im.src=(/^https?:/.test(p)||!S.dir)?(/^https?:/.test(p)?p:BASE+p.replace(/^\//,'')):await fileURL(p)}catch{im.alt=im.alt||'Image introuvable : '+p}}}
 
 /* ---------- Page = front matter + Markdown ---------- */
 function parse(t){
@@ -244,9 +255,10 @@ function article(meta,body){
   return `${backHTML(meta)}<h1>${esc(meta.title)}</h1><p class="desc">${esc(meta.description)}</p>${meta.edited?`<p class="last">Dernière édition le ${esc(fmt(meta.edited))} par <b>${esc(meta.author||'inconnu')}</b></p>`:''}${box}${md(body,c)}${hist}`}
 function groups(list){const g={};list.forEach(p=>(g[p.category]??=[]).push(p));return g}
 function nav(){
-  const g=groups(S.m.pages),cur=location.hash.slice(2);
-  $('#menu').innerHTML=S.m.menu?.length?S.m.menu.map(e=>e.h!==undefined?`<h4>${esc(e.h)}</h4>`:(find(e.p)?`<a href="#/${e.p}" class="${e.p===cur?'on':''}">${esc(find(e.p).title)}</a>`:'')).join(''):Object.keys(g).sort().map(c=>`<h4>${esc(c)}</h4>`+g[c].sort((a,b)=>a.title.localeCompare(b.title)).map(p=>`<a href="#/${p.path}" class="${p.path===cur?'on':''}">${esc(p.title)}</a>`).join('')).join('')||'<small>Aucune page pour l’instant.</small>';
-  $('#site').textContent=S.m.name;document.title=S.m.name}
+  const cur=curPath();
+  $('#links').innerHTML=(S.m.links||[]).map(e=>{const h=lnk(e.p||'home'),ext=/^https?:/.test(h);
+    return `<a href="${qa(h)}"${ext?' target="_blank" rel="noopener"':''} class="${!ext&&h==='#/'+cur?'on':''}">${esc(e.t||e.p)}</a>`}).join('');
+  $('#site').textContent=S.m.name;document.title=S.m.name;fixLinks($('#links'));fixLinks($('#site').parentNode)}
 const cards=l=>`<div class="cards">${l.map(p=>`<a href="#/${p.path}">${esc(p.title)}<small>${esc(p.description||p.category)}</small></a>`).join('')}</div>`;
 function home(){
   const g=groups(S.m.pages);
@@ -254,7 +266,7 @@ function home(){
 async function delPage(p){
   if(!confirm('Supprimer la page '+p+' ? Les images sont conservées.'))return false;
   const [d,n]=await getDir(p+'.md');await d.removeEntry(n);
-  S.m.pages=S.m.pages.filter(x=>x.path!==p);if(S.m.menu)S.m.menu=S.m.menu.filter(e=>e.p!==p);if(S.m.home===p)delete S.m.home;delete S.cache[p];await saveM();nav();return true}
+  S.m.pages=S.m.pages.filter(x=>x.path!==p);if(S.m.links)S.m.links=S.m.links.filter(e=>e.p!==p);if(S.m.home===p)delete S.m.home;delete S.cache[p];await saveM();nav();return true}
 function sidePanel(meta){
   const hs=[...main.querySelectorAll(':scope>h1,:scope>h2,:scope>h3,:scope>h4')];
   if(hs[0]?.tagName==='H1')hs.shift();
@@ -277,8 +289,8 @@ async function search(q){
   const r=S.m.pages.filter(p=>(p.title+' '+p.description+' '+p.category+' '+S.cache[p.path]).toLowerCase().includes(q));
   main.className='';main.innerHTML=`<h1>${r.length} résultat${r.length>1?'s':''}</h1>${cards(r)}`}
 function route(){
-  const h=location.hash.slice(2);nav();main.className='';$('#side').innerHTML='';S.heads=[];
-  if(h==='edit')return editor();
+  const h=curPath();nav();main.className='';$('#side').innerHTML='';S.heads=[];
+  if(h==='edit'&&LOCAL)return editor();
   if(!S.ok){main.innerHTML='<h1>Bienvenue</h1><p>Aucun <code>wiki.json</code> trouvé. En local, clique sur <b>📁 Ouvrir le dossier</b> et choisis le dossier de ton dépôt.</p>';return}
   if(!h)return S.m.home&&find(S.m.home)?showPage(S.m.home):home();showPage(h)}
 
@@ -311,7 +323,7 @@ function editor(){
   main.className='wide';
   if(!S.dir){main.innerHTML='<h1>Éditeur</h1><p>Clique d’abord sur <b>📁 Ouvrir le dossier</b> et choisis le dossier de ton dépôt (celui qui contient ce fichier <code>index.html</code>).</p>';return}
   main.innerHTML=`<h1>Éditeur</h1><label>Nom du wiki</label><input id="wn" value="${esc(S.m.name)}">
-  <p><button data-t="page">Pages</button> <button data-t="tpl">Modèles</button> <button data-t="css">Style (CSS)</button> <button data-t="map">Cartes</button> <button data-t="grid">Grilles</button> <button data-t="menu">Menu de gauche</button> <button data-t="home">Accueil et retour</button></p><div id="ed" class="ed1"></div>`;
+  <p><button data-t="page">Pages</button> <button data-t="tpl">Modèles</button> <button data-t="css">Style (CSS)</button> <button data-t="map">Cartes</button> <button data-t="grid">Grilles</button> <button data-t="menu">Menu (liens)</button> <button data-t="home">Accueil et retour</button></p><div id="ed" class="ed1"></div>`;
   $('#wn').onchange=async e=>{S.m.name=e.target.value.trim()||'Mon Wiki';await saveM();nav()};
   main.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;tab()});
   tab()}
@@ -327,7 +339,6 @@ function pageTab(){
     <label>Catégorie (nom du dossier, ex. items)</label><input id="c" list="cats"><datalist id="cats">${cats.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
     <label>Description</label><input id="d">
     <label>Page de retour (menu) affichée en haut de cette page</label><select id="bb">${backOpts('',true)}</select>
-    <label${S.m.menu?.length?'':' style="display:none"'}><input type="checkbox" id="nv" checked> Afficher dans le menu de gauche</label>
     <label>Image principale (dans le dossier images/ de la catégorie)</label><input id="im" placeholder="images/nom.png"><input id="imf" type="file" accept="image/*">
     <label>Fiche d’infos — une ligne par « Libellé: valeur »</label><textarea id="ib" rows="6"></textarea>
     <label>Historique — « Version: texte »</label><textarea id="hs" rows="4"></textarea>
@@ -342,9 +353,9 @@ function pageTab(){
   const preview=()=>{f('pv').innerHTML=article(collect(),f('b').value);fixImgs(f('pv'))};
   async function load(path){
     cur=path;f('c').readOnly=!!path;
-    if(!path){['t','c','d','im','ib','hs','b'].forEach(k=>f(k).value='');f('bb').value='';f('nv').checked=true;preview();return}
+    if(!path){['t','c','d','im','ib','hs','b'].forEach(k=>f(k).value='');f('bb').value='';preview();return}
     const {meta,body}=parse(await readText(path+'.md'));
-    f('t').value=meta.title;f('c').value=meta.category||path.split('/')[0];f('d').value=meta.description;f('im').value=meta.image;f('bb').value=meta.back||'';f('nv').checked=!S.m.menu?.length||S.m.menu.some(e=>e.p===path);
+    f('t').value=meta.title;f('c').value=meta.category||path.split('/')[0];f('d').value=meta.description;f('im').value=meta.image;f('bb').value=meta.back||'';
     f('ib').value=lines(meta.infobox);f('hs').value=lines(meta.history);f('b').value=body;preview()}
   async function upload(file){
     const c=slug(f('c').value);if(!c){alert('Renseigne d’abord la catégorie.');return null}
@@ -370,7 +381,6 @@ function pageTab(){
     await writeFile(path+'.md',dump(m,f('b').value));
     const e={path,title:m.title,category:m.category,description:m.description},i=S.m.pages.findIndex(p=>p.path===path);
     i<0?S.m.pages.push(e):S.m.pages[i]=e;delete S.cache[path];
-    if(S.m.menu?.length){const has=S.m.menu.some(x=>x.p===path);if(f('nv').checked&&!has)S.m.menu.push({p:path});if(!f('nv').checked)S.m.menu=S.m.menu.filter(x=>x.p!==path)}
     await saveM();
     cur=path;f('c').readOnly=true;nav();
     f('sel').innerHTML=`<option value="">➕ Nouvelle page</option>`+S.m.pages.map(p=>`<option value="${p.path}">${esc(p.path)}</option>`).join('');f('sel').value=path;
@@ -409,30 +419,26 @@ function homeTab(){
       let au='Wiki';try{au=localStorage.getItem('wikiPseudo')||au}catch{}
       const meta={title:'Accueil',description:'Page d’accueil du wiki',category:'accueil',image:'',edited:new Date().toISOString(),author:au,back:'',infobox:[],history:[]};
       await writeFile(path+'.md',dump(meta,`## Bienvenue sur ${S.m.name}\n\nCette page est l’accueil du wiki. Modifie-la dans l’onglet **Pages**, comme n’importe quelle autre page.\n`));
-      S.m.pages.push({path,title:'Accueil',category:'accueil',description:meta.description});
-      if(S.m.menu?.length)S.m.menu.unshift({p:path})}
+      S.m.pages.push({path,title:'Accueil',category:'accueil',description:meta.description});}
     S.m.home=path;await saveM();nav();S.openPath=path;S.tab='page';tab()};
   prev()}
 
 function menuTab(){
-  const f=id=>$('#'+id);let M=clone(S.m.menu||[]);
-  const opts=sel=>S.m.pages.map(p=>`<option value="${qa(p.path)}" ${p.path===sel?'selected':''}>${esc(p.title)} (${esc(p.path)})</option>`).join('');
-  $('#ed').innerHTML=`<p>Choisis les pages affichées dans le menu de gauche, leur ordre et les titres de section. Si la liste est vide, toutes les pages sont affichées automatiquement par catégorie.</p>
+  const f=id=>$('#'+id);
+  let M=clone(S.m.links||(S.m.menu||[]).filter(e=>e.p).map(e=>({t:(find(e.p)||{}).title||e.p,p:e.p})));
+  $('#ed').innerHTML=`<p>Liens affichés dans la barre du haut. Pour chaque lien : le <b>texte affiché</b> et la <b>page accédée</b> (choisis une page de la liste, écris <code>home</code> pour l’accueil, ou colle un lien <code>https://…</code>).</p>
+  <datalist id="pgs">${S.m.pages.map(p=>`<option value="${qa(p.path)}">${esc(p.title)}</option>`).join('')}<option value="home">Accueil</option></datalist>
   <div id="ml"></div>
-  <p><button id="mp">➕ Page</button> <button id="mh">➕ Titre de section</button> <button id="ma">Remplir avec toutes les pages</button></p>
-  <p><button class="pri" id="msv2">Enregistrer le menu</button><span id="msg"></span></p>`;
-  const list=()=>f('ml').innerHTML=M.map((e,i)=>`<div class="crow" data-i="${i}">${e.h!==undefined?`<b>Section</b><input data-k="h" value="${qa(e.h)}">`:`<select data-k="p">${opts(e.p)}</select>`}<button data-a="up">↑</button><button data-a="dn">↓</button><button data-a="x">✕</button></div>`).join('')||'<small>Menu automatique (aucune entrée).</small>';
-  f('ml').oninput=f('ml').onchange=e=>{const k=e.target.dataset.k;if(k)M[+e.target.closest('.crow').dataset.i][k]=e.target.value};
+  <p><button id="mp">➕ Lien</button> <button class="pri" id="msv2">Enregistrer</button><span id="msg"></span></p>`;
+  const list=()=>f('ml').innerHTML=M.map((e,i)=>`<div class="crow" data-i="${i}"><input data-k="t" value="${qa(e.t)}" placeholder="Texte affiché"><input data-k="p" list="pgs" value="${qa(e.p)}" placeholder="Page accédée"><button data-a="up">↑</button><button data-a="dn">↓</button><button data-a="x">✕</button></div>`).join('')||'<small>Aucun lien : la barre du haut ne montre que le nom du wiki et la recherche.</small>';
+  f('ml').oninput=e=>{const k=e.target.dataset.k;if(k)M[+e.target.closest('.crow').dataset.i][k]=e.target.value};
   f('ml').onclick=e=>{const a=e.target.dataset.a;if(!a)return;const i=+e.target.closest('.crow').dataset.i;
     if(a==='x')M.splice(i,1);
     else if(a==='up'&&i>0)[M[i-1],M[i]]=[M[i],M[i-1]];
     else if(a==='dn'&&i<M.length-1)[M[i+1],M[i]]=[M[i],M[i+1]];
     list()};
-  f('mp').onclick=()=>{if(!S.m.pages.length)return alert('Aucune page pour l’instant.');M.push({p:(S.m.pages.find(p=>!M.some(e=>e.p===p.path))||S.m.pages[0]).path});list()};
-  f('mh').onclick=()=>{M.push({h:'Nouvelle section'});list()};
-  f('ma').onclick=()=>{if(M.length&&!confirm('Remplacer le menu actuel ?'))return;
-    const g=groups(S.m.pages);M=[];Object.keys(g).sort().forEach(c=>{M.push({h:c});g[c].sort((a,b)=>a.title.localeCompare(b.title)).forEach(p=>M.push({p:p.path}))});list()};
-  f('msv2').onclick=async()=>{if(M.length)S.m.menu=M;else delete S.m.menu;await saveM();nav();say('Enregistré ✓')};
+  f('mp').onclick=()=>{M.push({t:'',p:''});list()};
+  f('msv2').onclick=async()=>{S.m.links=M.filter(e=>e.t||e.p);delete S.m.menu;await saveM();nav();say('Enregistré ✓')};
   list()}
 
 function tplTab(sel=''){
@@ -475,7 +481,7 @@ async function cssTab(){
 const qa=s=>esc(String(s??'')).replace(/"/g,'&quot;');
 const stripSlash=l=>(l||'').replace(/^\//,'');
 const bn=u=>(u||'').split('/').pop().split('?')[0];
-const lnk=l=>/^https?:/.test(l)?l:'#/'+((find(stripSlash(l))||{}).path||stripSlash(l).toLowerCase());
+const lnk=l=>/^https?:/.test(l)?l:(!l||l==='home'||l==='/')?'#/':'#/'+((find(stripSlash(l))||{}).path||stripSlash(l).toLowerCase());
 const ha=l=>l?`href="${qa(lnk(l))}"${/^https?:/.test(l)?' target="_blank" rel="noopener"':''}`:'';
 const icon=t=>t.icon?`<img data-src="${qa(t.icon)}" alt="">`:'';
 function mapHTML(d){
@@ -633,14 +639,20 @@ $('#open').onclick=async()=>{
   try{S.m=JSON.parse(await readText('wiki.json'))}catch{S.m={name:'Mon Wiki',pages:[],templates:[]}}
   await loadTpl();await loadCSS();route()};
 $('#q').oninput=e=>{const v=e.target.value.trim();v.length>1?search(v):route()};
-addEventListener('hashchange',route);
+addEventListener('hashchange',route);addEventListener('popstate',route);
+if(CLEAN){
+  if(location.hash.startsWith('#/'))history.replaceState(null,'',location.hash.slice(1));
+  new MutationObserver(()=>fixLinks(main)).observe(main,{childList:true,subtree:true});
+  document.addEventListener('click',e=>{const a=e.target.closest('a[href^="/"]');
+    if(!a||a.target==='_blank'||a.getAttribute('href').startsWith('//')||e.metaKey||e.ctrlKey||e.shiftKey||e.button)return;
+    e.preventDefault();history.pushState(null,'',a.getAttribute('href'));route();scrollTo(0,0)})}
 $('#side').addEventListener('click',e=>{const a=e.target.closest('.sd');if(a)document.getElementById(a.dataset.h)?.scrollIntoView({behavior:'smooth'})});
 addEventListener('scroll',()=>{if(!S.heads?.length)return;let cur=null;
   for(const h of S.heads){const el=document.getElementById(h.id);if(el&&el.getBoundingClientRect().top<90)cur=h.id}
   document.querySelectorAll('#side .sd').forEach(a=>a.classList.toggle('on',a.dataset.h===cur))},{passive:true});
 main.addEventListener('click',e=>{const b=e.target.closest('.map-legend button');if(!b)return;b.classList.toggle('off');
   b.closest('.map-box').querySelectorAll('.map-marker').forEach(m=>{if(m.dataset.t===b.dataset.t)m.hidden=b.classList.contains('off')})});
-$('#tools').hidden=!(location.protocol==='file:'||['localhost','127.0.0.1'].includes(location.hostname));
+$('#tools').hidden=!LOCAL;
 async function loadTpl(){S.tpl={};S.map={};S.grid={};
   for(const n of S.m.maps||[]){try{S.map[slug(n)]=JSON.parse(await readText(`maps/${slug(n)}.json`))}catch{}}
   for(const n of S.m.grids||[]){try{S.grid[slug(n)]=JSON.parse(await readText(`cards/${slug(n)}.json`))}catch{}}
