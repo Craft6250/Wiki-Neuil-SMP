@@ -3,7 +3,7 @@ title: Support
 description: 
 category: main
 image: 
-edited: 2026-11-21T23:04:29.020Z
+edited: 2026-11-22T11:01:04.797Z
 author: Craft
 back: 
 infobox:
@@ -22,7 +22,7 @@ Bienvenue sur le support du Neuil SMP vous pouvez tenter de chercher une répons
 </section>
 
 <center>
-<a href="Support/Rules" class="hero-btn">
+<a href="Support/Regles" class="hero-btn">
       Consulter nos règles <span>→</span>
     </a>
 <a href="Support/Unban" class="hero-btn">
