@@ -3,7 +3,7 @@ title: Crédits
 description: 
 category: main
 image: 
-edited: 2026-11-22T15:59:08.430Z
+edited: 2026-11-22T16:22:46.388Z
 author: Craft
 back: 
 infobox:
@@ -29,7 +29,7 @@ history:
             <strong class="credit-name">Surchedv</strong>
             <span class="badge">Fondateur</span>
           </div>
-          <p class="credit-desc">Fondateur, Dev Minecraft &amp; Vorium Studio</p>
+          <p class="credit-desc">Fondateur, Dev Minecraft & Vorium Studio</p>
         </div>
       </div>
 
@@ -40,7 +40,7 @@ history:
             <strong class="credit-name">Craft</strong>
             <span class="badge">Fondateur</span>
           </div>
-          <p class="credit-desc">Fondateur, Editeur Wiki, Dev Minecraft</p>
+          <p class="credit-desc">Fondateur, Editeur Wiki, Dev Minecraft & Vorium Studi</p>
         </div>
       </div>
     </div>
