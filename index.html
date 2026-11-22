@@ -13,6 +13,7 @@ header{display:flex;gap:12px;align-items:center;padding:10px 16px;border-bottom:
 header b{font-size:17px}
 #q{flex:1;max-width:360px;margin-left:auto}
 #tools{display:flex;gap:8px;align-items:center}
+#tools[hidden]{display:none}
 input,textarea,select,button{font:inherit;color:inherit;background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:6px 10px}
 button{cursor:pointer}
 button.pri{background:var(--ac);border-color:var(--ac);color:#fff}
@@ -111,11 +112,9 @@ header{flex-wrap:wrap}
 <body>
 <header>
   <a id="site" href="#/">Wiki</a>
-  <span id="links"></span>
-  <span id="tools" hidden><button id="open">📁 Ouvrir le dossier</button><a href="#/edit">✎ Éditeur</a></span>
   <input id="q" type="search" placeholder="Rechercher une page…">
 </header>
-<div id="layout"><aside id="side"></aside><main id="main"></main></div>
+<div id="layout"><nav id="nav"><div id="menu"></div></nav><aside id="side"></aside><main id="main"></main></div>
 <script>
 const $=s=>document.querySelector(s), main=$('#main');
 const LOCAL=location.protocol==='file:'||['localhost','127.0.0.1'].includes(location.hostname);
@@ -134,7 +133,6 @@ async function getDir(path,create){let d=S.dir;const a=path.split('/');for(const
 async function readText(p){
   if(S.dir){const [d,n]=await getDir(p);return (await (await d.getFileHandle(n)).getFile()).text()}
   const r=await fetch(BASE+p+'?t='+Date.now());if(!r.ok||(/text\/html/.test(r.headers.get('content-type')||'')&&!/\.html?$/.test(p)))throw 0;return r.text()}
-async function writeFile(p,data){const [d,n]=await getDir(p,true);const w=await (await d.getFileHandle(n,{create:true})).createWritable();await w.write(data);await w.close()}
 async function fileURL(p){const [d,n]=await getDir(p);return URL.createObjectURL(await (await d.getFileHandle(n)).getFile())}
 async function fixImgs(root){
   for(const im of root.querySelectorAll('img[data-src]')){
@@ -256,17 +254,15 @@ function article(meta,body){
 function groups(list){const g={};list.forEach(p=>(g[p.category]??=[]).push(p));return g}
 function nav(){
   const cur=curPath();
-  $('#links').innerHTML=(S.m.links||[]).map(e=>{const h=lnk(e.p||'home'),ext=/^https?:/.test(h);
+  $('#menu').innerHTML=(S.m.links||[]).map(e=>{
+    if(!e.p)return `<h4>${esc(e.t||'')}</h4>`;
+    const h=lnk(e.p),ext=/^https?:/.test(h);
     return `<a href="${qa(h)}"${ext?' target="_blank" rel="noopener"':''} class="${!ext&&h==='#/'+cur?'on':''}">${esc(e.t||e.p)}</a>`}).join('');
-  $('#site').textContent=S.m.name;document.title=S.m.name;fixLinks($('#links'));fixLinks($('#site').parentNode)}
+  $('#site').textContent=S.m.name;document.title=S.m.name;fixLinks($('#menu'));fixLinks($('#site').parentNode)}
 const cards=l=>`<div class="cards">${l.map(p=>`<a href="#/${p.path}">${esc(p.title)}<small>${esc(p.description||p.category)}</small></a>`).join('')}</div>`;
 function home(){
   const g=groups(S.m.pages);
   main.innerHTML=`<h1>${esc(S.m.name)}</h1>`+(Object.keys(g).sort().map(c=>`<h2>${esc(c)}</h2>${cards(g[c])}`).join('')||'<p>Ce wiki est vide. Ouvre l’éditeur pour créer la première page.</p>')}
-async function delPage(p){
-  if(!confirm('Supprimer la page '+p+' ? Les images sont conservées.'))return false;
-  const [d,n]=await getDir(p+'.md');await d.removeEntry(n);
-  S.m.pages=S.m.pages.filter(x=>x.path!==p);if(S.m.links)S.m.links=S.m.links.filter(e=>e.p!==p);if(S.m.home===p)delete S.m.home;delete S.cache[p];await saveM();nav();return true}
 function sidePanel(meta){
   const hs=[...main.querySelectorAll(':scope>h1,:scope>h2,:scope>h3,:scope>h4')];
   if(hs[0]?.tagName==='H1')hs.shift();
@@ -278,9 +274,6 @@ async function showPage(path){
   if(!find(path)){main.innerHTML='<h1>Page introuvable</h1><p><a href="#/">Retour à l’accueil</a></p>';return}
   try{const {meta,body}=parse(await readText(path+'.md'));if(!meta.category)meta.category=path.split('/')[0];meta.__path=path;
     main.innerHTML=article(meta,body);
-    if(S.dir){const bk=main.querySelector('.back');(bk||main).insertAdjacentHTML(bk?'afterend':'afterbegin','<p class="tb"><button id="pe">✎ Modifier</button><button id="pd">🗑 Supprimer</button></p>');
-      $('#pe').onclick=()=>{S.openPath=path;S.tab='page';location.hash='#/edit'};
-      $('#pd').onclick=async()=>{if(await delPage(path))location.hash='#/'}}
     document.title=meta.title+' – '+S.m.name;fixImgs(main);sidePanel(meta)}
   catch{main.innerHTML='<h1>Fichier introuvable</h1><p>Le fichier <code>'+esc(path)+'.md</code> est absent du dépôt.</p>'}}
 async function loadAll(){await Promise.all(S.m.pages.filter(p=>!(p.path in S.cache)).map(async p=>{try{S.cache[p.path]=await readText(p.path+'.md')}catch{S.cache[p.path]=''}}))}
@@ -290,192 +283,9 @@ async function search(q){
   main.className='';main.innerHTML=`<h1>${r.length} résultat${r.length>1?'s':''}</h1>${cards(r)}`}
 function route(){
   const h=curPath();nav();main.className='';$('#side').innerHTML='';S.heads=[];
-  if(h==='edit'&&LOCAL)return editor();
+  
   if(!S.ok){main.innerHTML='<h1>Bienvenue</h1><p>Aucun <code>wiki.json</code> trouvé. En local, clique sur <b>📁 Ouvrir le dossier</b> et choisis le dossier de ton dépôt.</p>';return}
   if(!h)return S.m.home&&find(S.m.home)?showPage(S.m.home):home();showPage(h)}
-
-/* ---------- Éditeur ---------- */
-const lines=a=>a.map(([x,y])=>x+': '+y).join('\n');
-const unlines=t=>t.split('\n').map(l=>{const i=l.indexOf(':');return i>0?[l.slice(0,i).trim(),l.slice(i+1).trim()]:null}).filter(Boolean);
-const saveM=()=>writeFile('wiki.json',JSON.stringify(S.m,null,2));
-const say=t=>{const m=$('#msg');if(m){m.textContent=t;setTimeout(()=>m.textContent='',3000)}};
-const wrap=(ta,a,b='')=>{const s=ta.selectionStart,e=ta.selectionEnd,v=ta.value;ta.value=v.slice(0,s)+a+v.slice(s,e)+b+v.slice(e);ta.focus();ta.selectionStart=s+a.length;ta.selectionEnd=e+a.length;ta.dispatchEvent(new Event('input'))};
-const TB=[['G','**','**'],['I','*','*'],['Titre','\n## ',''],['Lien','[[',']]'],['Liste','\n- ',''],['Tableau','\n| A | B |\n| --- | --- |\n| 1 | 2 |\n',''],['Bloc','\n::: classe\n','\n:::\n']];
-const STARTER_CSS=`/* style.css — appliqué à tout le wiki.
-   Variables : --bg (fond) --fg (texte) --ac (accent) --sf (surfaces) --bd (bordures)
-   Utilise tes classes dans une page :  ::: note warn ... :::   ou   [texte]{.badge}  */
-:root{--ac:#0f766e}
-.note{border-left:4px solid var(--ac);background:var(--sf);padding:8px 14px;border-radius:6px;margin:12px 0}
-.note.warn{border-left-color:#d97706}
-.note.danger{border-left-color:#c0392b}
-.carte{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin:4px;background:var(--sf);text-decoration:none;color:var(--fg)}
-.carte img{width:62px;height:62px;object-fit:contain}
-.carte-nom{font-weight:600;display:block}
-.carte-prix{color:#16a34a;display:block}
-.badge{background:var(--ac);color:#fff;padding:1px 8px;border-radius:99px;font-size:.85em}
-`;
-const STARTER_TPL={
- 'Note':'<div class="note {{{type|}}}"><b>{{{titre|Note}}}</b><br>{{{1|}}}</div>',
- 'Carte':'<a class="carte" href="#/{{{lien|}}}"><img data-img="{{{image|}}}" alt=""><span><span class="carte-nom">{{{nom|}}}</span><span class="carte-prix">{{{prix|}}}</span></span></a>'};
-
-const backOpts=(sel,def)=>(def?`<option value="">Par défaut du wiki</option>`:'')+`<option value="home">Accueil</option><option value="none">Aucune</option>`+S.m.pages.map(p=>`<option value="${qa(p.path)}">${esc(p.title)}</option>`).join('').replace(new RegExp(`value="${(sel||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}"`),'$& selected');
-function editor(){
-  main.className='wide';
-  if(!S.dir){main.innerHTML='<h1>Éditeur</h1><p>Clique d’abord sur <b>📁 Ouvrir le dossier</b> et choisis le dossier de ton dépôt (celui qui contient ce fichier <code>index.html</code>).</p>';return}
-  main.innerHTML=`<h1>Éditeur</h1><label>Nom du wiki</label><input id="wn" value="${esc(S.m.name)}">
-  <p><button data-t="page">Pages</button> <button data-t="tpl">Modèles</button> <button data-t="css">Style (CSS)</button> <button data-t="map">Cartes</button> <button data-t="grid">Grilles</button> <button data-t="menu">Menu (liens)</button> <button data-t="home">Accueil et retour</button></p><div id="ed" class="ed1"></div>`;
-  $('#wn').onchange=async e=>{S.m.name=e.target.value.trim()||'Mon Wiki';await saveM();nav()};
-  main.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;tab()});
-  tab()}
-function tab(){
-  main.querySelectorAll('[data-t]').forEach(b=>b.classList.toggle('pri',b.dataset.t===S.tab));
-  ({page:pageTab,tpl:tplTab,css:cssTab,map:mapTab,grid:gridTab,menu:menuTab,home:homeTab})[S.tab]()}
-
-function pageTab(){
-  const cats=[...new Set(S.m.pages.map(p=>p.category))],names=S.m.templates||[];
-  $('#ed').innerHTML=`<label>Page</label><select id="sel"><option value="">➕ Nouvelle page</option>${S.m.pages.map(p=>`<option value="${p.path}">${esc(p.path)}</option>`).join('')}</select>
-  <div class="ed"><div>
-    <label>Titre</label><input id="t">
-    <label>Catégorie (nom du dossier, ex. items)</label><input id="c" list="cats"><datalist id="cats">${cats.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
-    <label>Description</label><input id="d">
-    <label>Page de retour (menu) affichée en haut de cette page</label><select id="bb">${backOpts('',true)}</select>
-    <label>Image principale (dans le dossier images/ de la catégorie)</label><input id="im" placeholder="images/nom.png"><input id="imf" type="file" accept="image/*">
-    <label>Fiche d’infos — une ligne par « Libellé: valeur »</label><textarea id="ib" rows="6"></textarea>
-    <label>Historique — « Version: texte »</label><textarea id="hs" rows="4"></textarea>
-    <label>Contenu — liens : [[Titre]] · modèles : {{Nom|param=valeur}} · blocs stylés : ::: classe</label>
-    <div class="tb">${TB.map((t,i)=>`<button data-i="${i}">${t[0]}</button>`).join('')}<button id="ins">🖼 Image</button><select id="tp"><option value="">Modèle…</option>${names.map(n=>`<option>${esc(n)}</option>`).join('')}</select><select id="bk"><option value="">Carte / grille…</option>${(S.m.maps||[]).map(n=>`<option value="map:${qa(n)}">Carte : ${esc(n)}</option>`).join('')}${(S.m.grids||[]).map(n=>`<option value="cards:${qa(n)}">Grille : ${esc(n)}</option>`).join('')}</select></div>
-    <textarea id="b" rows="14"></textarea>
-    <label>Ton pseudo — affiché sur la page dans « Dernière édition » (la date est automatique)</label><input id="au">
-    <p><button class="pri" id="sv">Enregistrer</button> <button id="del">Supprimer cette page</button><span id="msg"></span></p>
-  </div><div class="pv" id="pv"></div></div>`;
-  let cur='';const f=id=>$('#'+id);
-  const collect=()=>({back:f('bb').value,__path:cur,edited:new Date().toISOString(),author:f('au').value.trim(),title:f('t').value.trim(),description:f('d').value.trim(),category:slug(f('c').value),image:f('im').value.trim(),infobox:unlines(f('ib').value),history:unlines(f('hs').value)});
-  const preview=()=>{f('pv').innerHTML=article(collect(),f('b').value);fixImgs(f('pv'))};
-  async function load(path){
-    cur=path;f('c').readOnly=!!path;
-    if(!path){['t','c','d','im','ib','hs','b'].forEach(k=>f(k).value='');f('bb').value='';preview();return}
-    const {meta,body}=parse(await readText(path+'.md'));
-    f('t').value=meta.title;f('c').value=meta.category||path.split('/')[0];f('d').value=meta.description;f('im').value=meta.image;f('bb').value=meta.back||'';
-    f('ib').value=lines(meta.infobox);f('hs').value=lines(meta.history);f('b').value=body;preview()}
-  async function upload(file){
-    const c=slug(f('c').value);if(!c){alert('Renseigne d’abord la catégorie.');return null}
-    const ext=(file.name.match(/\.\w+$/)||['.png'])[0].toLowerCase(),name=slug(file.name.replace(/\.\w+$/,''))+ext;
-    await writeFile(`${c}/images/${name}`,file);return 'images/'+name}
-  try{f('au').value=localStorage.getItem('wikiPseudo')||''}catch{}
-  f('sel').onchange=e=>load(e.target.value);
-  document.querySelectorAll('.ed input,.ed textarea').forEach(e=>e.addEventListener('input',preview));
-  document.querySelectorAll('.tb [data-i]').forEach(b=>b.onclick=()=>wrap(f('b'),...TB[b.dataset.i].slice(1)));
-  f('tp').onchange=e=>{const n=e.target.value;if(!n)return;
-    const ps=[...new Set([...(S.tpl[slug(n)]||'').matchAll(/\{\{\{([^|}]+)/g)].map(m=>m[1].trim()))];
-    wrap(f('b'),`{{${n}|${ps.map(p=>/^\d+$/.test(p)?'':p+'=').join('|')}}}`);e.target.value=''};
-  f('bk').onchange=e=>{const v=e.target.value;if(v){wrap(f('b'),`\n[${v}]\n`);e.target.value=''}};
-  f('imf').onchange=async e=>{const u=e.target.files[0]&&await upload(e.target.files[0]);if(u){f('im').value=u;preview()}};
-  f('ins').onclick=()=>{const i=document.createElement('input');i.type='file';i.accept='image/*';
-    i.onchange=async()=>{const u=i.files[0]&&await upload(i.files[0]);if(u)wrap(f('b'),`![](${u})`)};i.click()};
-  f('sv').onclick=async()=>{
-    const m=collect();if(!m.title||!m.category){alert('Le titre et la catégorie sont obligatoires.');return}
-    if(!m.author){alert('Mets ton pseudo : il apparaît dans « Dernière édition ».');return}
-    try{localStorage.setItem('wikiPseudo',m.author)}catch{}
-    const path=cur||m.category+'/'+slug(m.title);
-    if(!cur&&find(path)){alert('Une page porte déjà ce nom dans cette catégorie.');return}
-    await writeFile(path+'.md',dump(m,f('b').value));
-    const e={path,title:m.title,category:m.category,description:m.description},i=S.m.pages.findIndex(p=>p.path===path);
-    i<0?S.m.pages.push(e):S.m.pages[i]=e;delete S.cache[path];
-    await saveM();
-    cur=path;f('c').readOnly=true;nav();
-    f('sel').innerHTML=`<option value="">➕ Nouvelle page</option>`+S.m.pages.map(p=>`<option value="${p.path}">${esc(p.path)}</option>`).join('');f('sel').value=path;
-    say('Enregistré ✓')};
-  f('del').onclick=async()=>{if(cur&&await delPage(cur))pageTab()};
-  if(S.openPath){const p=S.openPath;S.openPath='';f('sel').value=p;load(p)}else preview()}
-
-function homeTab(){
-  const f=id=>$('#'+id),c=backCfg();
-  const pages=sel=>S.m.pages.map(p=>`<option value="${qa(p.path)}" ${p.path===sel?'selected':''}>${esc(p.title)} (${esc(p.path)})</option>`).join('');
-  $('#ed').innerHTML=`<h3>Page d’accueil</h3>
-  <p>L’accueil est une page comme les autres : tu la modifies dans l’onglet Pages. Choisis ici celle qui s’affiche quand on ouvre le wiki.</p>
-  <select id="hp"><option value="">Automatique (liste des pages)</option>${pages(S.m.home)}</select> <button id="hc">➕ Créer la page d’accueil</button><span id="msg"></span>
-  <h3>Barre « Retour à l’accueil »</h3>
-  <p>Affichée tout en haut de chaque page. Chaque page peut avoir son propre réglage dans l’onglet Pages (champ « Page de retour »).</p>
-  <div class="ed"><div>
-    <label><input type="checkbox" id="bo" ${c.on?'checked':''}> Afficher la barre de retour</label>
-    <label>Image à gauche du texte</label><button id="bi">Choisir l’image…</button> <button id="br">Retirer</button> <small id="bp">${esc(c.image)}</small>
-    <label>Texte</label><input id="bt" value="${qa(c.text)}">
-    <label>Sous-texte (optionnel)</label><input id="bs" value="${qa(c.sub)}">
-    <label>Page de destination</label><select id="bd"><option value="home">Accueil</option>${pages(c.target)}</select>
-    <p><button class="pri" id="bsv">Enregistrer</button></p>
-  </div><div><label>Aperçu</label><div class="pv" id="bv"></div></div></div>`;
-  let img=c.image;
-  const cfg=()=>({on:f('bo').checked,text:f('bt').value,sub:f('bs').value,image:img,target:f('bd').value});
-  const prev=()=>{const k=cfg();f('bv').innerHTML=k.on?backBar(k,{back:'',__path:''}):'<small>Barre désactivée.</small>';fixImgs(f('bv'))};
-  document.querySelectorAll('#ed input,#ed select').forEach(e=>e.addEventListener('input',prev));
-  f('bd').onchange=prev;
-  f('bi').onclick=()=>pick(false,async([file])=>{img=await up('images',file);f('bp').textContent=img;prev()});
-  f('br').onclick=()=>{img='';f('bp').textContent='';prev()};
-  f('bsv').onclick=async()=>{S.m.backBar=cfg();delete S.m.back;await saveM();say('Enregistré ✓')};
-  f('hp').onchange=async e=>{if(e.target.value)S.m.home=e.target.value;else delete S.m.home;await saveM();say('Enregistré ✓')};
-  f('hc').onclick=async()=>{
-    const path='accueil/accueil';
-    if(!find(path)){
-      let au='Wiki';try{au=localStorage.getItem('wikiPseudo')||au}catch{}
-      const meta={title:'Accueil',description:'Page d’accueil du wiki',category:'accueil',image:'',edited:new Date().toISOString(),author:au,back:'',infobox:[],history:[]};
-      await writeFile(path+'.md',dump(meta,`## Bienvenue sur ${S.m.name}\n\nCette page est l’accueil du wiki. Modifie-la dans l’onglet **Pages**, comme n’importe quelle autre page.\n`));
-      S.m.pages.push({path,title:'Accueil',category:'accueil',description:meta.description});}
-    S.m.home=path;await saveM();nav();S.openPath=path;S.tab='page';tab()};
-  prev()}
-
-function menuTab(){
-  const f=id=>$('#'+id);
-  let M=clone(S.m.links||(S.m.menu||[]).filter(e=>e.p).map(e=>({t:(find(e.p)||{}).title||e.p,p:e.p})));
-  $('#ed').innerHTML=`<p>Liens affichés dans la barre du haut. Pour chaque lien : le <b>texte affiché</b> et la <b>page accédée</b> (choisis une page de la liste, écris <code>home</code> pour l’accueil, ou colle un lien <code>https://…</code>).</p>
-  <datalist id="pgs">${S.m.pages.map(p=>`<option value="${qa(p.path)}">${esc(p.title)}</option>`).join('')}<option value="home">Accueil</option></datalist>
-  <div id="ml"></div>
-  <p><button id="mp">➕ Lien</button> <button class="pri" id="msv2">Enregistrer</button><span id="msg"></span></p>`;
-  const list=()=>f('ml').innerHTML=M.map((e,i)=>`<div class="crow" data-i="${i}"><input data-k="t" value="${qa(e.t)}" placeholder="Texte affiché"><input data-k="p" list="pgs" value="${qa(e.p)}" placeholder="Page accédée"><button data-a="up">↑</button><button data-a="dn">↓</button><button data-a="x">✕</button></div>`).join('')||'<small>Aucun lien : la barre du haut ne montre que le nom du wiki et la recherche.</small>';
-  f('ml').oninput=e=>{const k=e.target.dataset.k;if(k)M[+e.target.closest('.crow').dataset.i][k]=e.target.value};
-  f('ml').onclick=e=>{const a=e.target.dataset.a;if(!a)return;const i=+e.target.closest('.crow').dataset.i;
-    if(a==='x')M.splice(i,1);
-    else if(a==='up'&&i>0)[M[i-1],M[i]]=[M[i],M[i-1]];
-    else if(a==='dn'&&i<M.length-1)[M[i+1],M[i]]=[M[i],M[i+1]];
-    list()};
-  f('mp').onclick=()=>{M.push({t:'',p:''});list()};
-  f('msv2').onclick=async()=>{S.m.links=M.filter(e=>e.t||e.p);delete S.m.menu;await saveM();nav();say('Enregistré ✓')};
-  list()}
-
-function tplTab(sel=''){
-  const names=S.m.templates||[];
-  $('#ed').innerHTML=`<label>Modèle</label><select id="ts"><option value="">➕ Nouveau modèle</option>${names.map(n=>`<option>${esc(n)}</option>`).join('')}</select> <button id="tex">Ajouter les modèles et le style d’exemple</button>
-  <div class="ed"><div>
-    <label>Nom du modèle (appelé avec {{Nom|param=valeur}})</label><input id="tn">
-    <label>Code HTML. Paramètres : {{{nom}}}, {{{nom|valeur par défaut}}}, {{{1}}} (premier paramètre sans nom). Images : data-img="{{{image}}}"</label>
-    <textarea id="tc" rows="16"></textarea>
-    <p><button class="pri" id="tsv">Enregistrer</button> <button id="tdel">Supprimer</button><span id="msg"></span></p>
-  </div><div><label>Aperçu avec les valeurs par défaut</label><div class="pv" id="tpv"></div></div></div>`;
-  const f=id=>$('#'+id);
-  const prev=()=>{const n=slug(f('tn').value||'apercu');S.tpl[n]=f('tc').value;f('tpv').innerHTML=md('{{'+n+'}}','');fixImgs(f('tpv'))};
-  const fill=n=>{f('tn').value=n;f('tc').value=n?S.tpl[slug(n)]||'':'';f('tn').readOnly=!!n;prev()};
-  f('ts').onchange=e=>fill(e.target.value);
-  f('tn').oninput=prev;f('tc').oninput=prev;
-  f('tsv').onclick=async()=>{
-    const n=f('tn').value.trim();if(!n)return alert('Donne un nom au modèle.');
-    await writeFile(`templates/${slug(n)}.html`,f('tc').value);S.tpl[slug(n)]=f('tc').value;
-    S.m.templates=[...new Set([...(S.m.templates||[]),n])];await saveM();tplTab(n);say('Enregistré ✓')};
-  f('tdel').onclick=async()=>{
-    const n=f('tn').value.trim();if(!n||!(S.m.templates||[]).includes(n)||!confirm('Supprimer le modèle '+n+' ?'))return;
-    const [d,fn]=await getDir(`templates/${slug(n)}.html`);await d.removeEntry(fn);
-    delete S.tpl[slug(n)];S.m.templates=S.m.templates.filter(x=>x!==n);await saveM();tplTab()};
-  f('tex').onclick=async()=>{
-    for(const [n,h] of Object.entries(STARTER_TPL)){if(S.tpl[slug(n)]!==undefined)continue;
-      await writeFile(`templates/${slug(n)}.html`,h);S.tpl[slug(n)]=h;S.m.templates=[...new Set([...(S.m.templates||[]),n])]}
-    try{await readText('style.css')}catch{await writeFile('style.css',STARTER_CSS);$('#custom').textContent=STARTER_CSS}
-    await saveM();tplTab()};
-  if(sel){f('ts').value=sel;fill(sel)}else prev()}
-
-async function cssTab(){
-  $('#ed').innerHTML=`<label>style.css — appliqué à tout le wiki, l’aperçu est immédiat</label><textarea id="cs" rows="24" style="width:100%;font:13px/1.5 ui-monospace,Consolas,monospace"></textarea>
-  <p><button class="pri" id="csv">Enregistrer style.css</button><span id="msg"></span></p>`;
-  $('#cs').value=$('#custom').textContent||STARTER_CSS;
-  $('#cs').oninput=e=>{$('#custom').textContent=e.target.value};
-  $('#csv').onclick=async()=>{await writeFile('style.css',$('#cs').value);say('Enregistré ✓')}}
 
 /* ---------- Cartes interactives & grilles de cartes ---------- */
 const qa=s=>esc(String(s??'')).replace(/"/g,'&quot;');
@@ -495,149 +305,7 @@ function cardsHTML(d){
   if(!d)return '';
   return `<div class="lgrid" style="--cols:${d.cols||2}">${(d.cards||[]).map(c=>`<a class="lcard${c.wide?' wide':''}" ${ha(c.link)}>${c.img?`<img data-src="${qa(c.img)}" alt="">`:''}<div class="lg"></div>${c.tag?`<div class="ltag">${esc(c.tag)}</div>`:''}<div class="lc"><div class="lt">${esc(c.title||'')}</div><div class="ld">${esc(c.desc||'')}</div></div></a>`).join('')}</div>`}
 
-const rm=async p=>{const [d,n]=await getDir(p);await d.removeEntry(n)};
-const up=async(dir,file)=>{const ext=(file.name.match(/\.\w+$/)||['.png'])[0].toLowerCase(),n=slug(file.name.replace(/\.\w+$/,''))+ext;await writeFile(`${dir}/${n}`,file);return `${dir}/${n}`};
-const pick=(multi,cb)=>{const i=document.createElement('input');i.type='file';i.accept='image/*';i.multiple=!!multi;i.onchange=()=>i.files.length&&cb([...i.files]);i.click()};
-const clone=o=>JSON.parse(JSON.stringify(o));
-async function saveData(kind,name,D){
-  const store=kind==='maps'?S.map:S.grid,key=kind==='maps'?'maps':'grids';
-  await writeFile(`${kind}/${slug(name)}.json`,JSON.stringify(D,null,1));
-  store[slug(name)]=clone(D);S.m[key]=[...new Set([...(S.m[key]||[]),name])];await saveM()}
-async function bulk(files,items,dir,set){
-  let n=0;
-  for(const f of files){const key=slug(f.name.replace(/\.\w+$/,'')),it=items.find(x=>x._o===f.name||slug(x.label||x.title||'')===key);
-    if(it){set(it,await up(dir,f));delete it._o;n++}}
-  return n}
-
-function importMap(html){
-  const doc=new DOMParser().parseFromString(html,'text/html'),types={},markers=[];
-  doc.querySelectorAll('.map-marker').forEach(a=>{
-    const st=a.getAttribute('style')||'',g=r=>(st.match(r)||[])[1];
-    const y=parseFloat(g(/top:\s*([\d.]+)%/)),x=parseFloat(g(/left:\s*([\d.]+)%/));
-    if(isNaN(x)||isNaN(y))return;
-    const label=(a.querySelector('span')?.textContent||'').trim(),id=slug(label)||'repere';
-    types[id]??={id,label,color:g(/--marker-bg:\s*(#[0-9a-fA-F]{6})/)||'#f59c0a',icon:'',_o:bn(g(/--marker-icon:\s*url\(['"]?([^'")]+)/)),link:stripSlash(a.getAttribute('href'))};
-    markers.push({t:id,x,y,label:'',link:''})});
-  return {_o:bn(doc.querySelector('.map-image')?.getAttribute('src')),types:Object.values(types),markers}}
-function importCards(html){
-  const doc=new DOMParser().parseFromString(html,'text/html'),tx=(a,s)=>(a.querySelector(s)?.textContent||'').trim();
-  return [...doc.querySelectorAll('a.location-card')].map(a=>({title:tx(a,'.location-button-title'),desc:tx(a,'.location-button-description'),img:'',_o:bn(a.querySelector('img')?.getAttribute('src')),link:stripSlash(a.getAttribute('href')),tag:tx(a,'.location-button-tag'),wide:a.classList.contains('location-card-wide')}))}
-
-function mapTab(sel=''){
-  const names=S.m.maps||[],f=id=>$('#'+id);
-  let D={image:'',size:26,types:[],markers:[]},cur=-1,act='',drag=-1;
-  $('#ed').innerHTML=`<label>Carte</label><select id="ms"><option value="">➕ Nouvelle carte</option>${names.map(n=>`<option>${esc(n)}</option>`).join('')}</select> <button id="mi">📥 Importer un HTML existant</button>
-  <div id="imp" hidden><textarea id="it" rows="6" placeholder="Colle ici le HTML de ta carte (les balises map-marker)"></textarea><button class="pri" id="iok">Importer</button></div>
-  <div class="ed"><div>
-    <label>Nom — dans une page, écris [map:Nom] sur une ligne seule</label><input id="mn">
-    <label>Image de la carte</label><button id="mim">Choisir l’image…</button> <small id="mip"></small>
-    <label>Taille des repères (px)</label><input id="msz" type="number" min="10" max="80" value="26">
-    <label>Types de repères — coche celui à placer, puis clique sur la carte</label><div id="tl"></div><button id="ta">➕ Type</button> <button id="tb">Associer des images en lot…</button>
-    <label>Repère sélectionné — glisse-le pour le déplacer</label><div id="sp"></div>
-    <p><button class="pri" id="msv">Enregistrer</button> <button id="mdel">Supprimer la carte</button><span id="msg"></span></p>
-  </div><div id="cvw"></div></div>`;
-  const pos=e=>{const r=f('ov').getBoundingClientRect(),c=(v,a,b)=>Math.min(100,Math.max(0,Math.round((v-a)/b*1000)/10));return [c(e.clientX,r.left,r.width),c(e.clientY,r.top,r.height)]};
-  function renderTypes(){
-    f('tl').innerHTML=D.types.map((t,i)=>`<div class="trow"><input type="radio" name="at" value="${i}" ${t.id===act?'checked':''}><input data-k="label" data-i="${i}" value="${qa(t.label)}" size="12"><input type="color" data-k="color" data-i="${i}" value="${qa(t.color)}"><button data-ic="${i}" title="Icône">${t.icon?'🖼✓':'🖼'}</button><input data-k="link" data-i="${i}" value="${qa(t.link)}" placeholder="lien par défaut" size="12"><button data-x="${i}">✕</button></div>`).join('')||'<small>Aucun type : ajoutes-en un.</small>'}
-  function renderCanvas(){
-    f('cvw').innerHTML=D.image?`<div class="map-inner"><img class="map-image" data-src="${qa(D.image)}" alt=""><div class="map-overlay" id="ov" style="cursor:crosshair">${D.markers.map((m,i)=>{const t=D.types.find(x=>x.id===m.t)||{},c=t.color||'#888';
-      return `<span class="map-marker${i===cur?' sel':''}" data-i="${i}" style="top:${m.y}%;left:${m.x}%;--mc:${c};--mg:${c}b3;width:${D.size}px;height:${D.size}px">${icon(t)}<i>${esc(m.label||t.label||'')}</i></span>`}).join('')}</div></div><p><small>${D.markers.length} repères</small></p>`:'<p>Choisis d’abord l’image de la carte.</p>';
-    fixImgs(f('cvw'))}
-  function renderSel(){
-    const m=D.markers[cur];
-    f('sp').innerHTML=m?`<input id="sl" placeholder="Nom (sinon celui du type)" value="${qa(m.label)}"><input id="sk" placeholder="Lien (sinon celui du type)" value="${qa(m.link)}"><select id="st">${D.types.map(t=>`<option value="${qa(t.id)}" ${t.id===m.t?'selected':''}>${esc(t.label)}</option>`).join('')}</select> <button id="sd">Supprimer ce repère</button>`:'<small>Clique un repère sur la carte.</small>';
-    if(!m)return;
-    f('sl').oninput=e=>m.label=e.target.value;f('sk').oninput=e=>m.link=e.target.value;
-    f('st').onchange=e=>{m.t=e.target.value;renderCanvas()};
-    f('sd').onclick=()=>{D.markers.splice(cur,1);cur=-1;renderCanvas();renderSel()}}
-  const all=()=>{f('mn').value=f('mn').value;f('msz').value=D.size;f('mip').textContent=D.image;renderTypes();renderCanvas();renderSel()};
-  function load(n){
-    D=n?clone(S.map[slug(n)]||D):{image:'',size:26,types:[],markers:[]};D.types??=[];D.markers??=[];D.size??=26;
-    f('mn').value=n;f('mn').readOnly=!!n;cur=-1;act=D.types[0]?.id||'';all()}
-  f('ms').onchange=e=>load(e.target.value);
-  f('mi').onclick=()=>f('imp').hidden=!f('imp').hidden;
-  f('iok').onclick=()=>{
-    const r=importMap(f('it').value);if(!r.markers.length)return alert('Aucun repère trouvé : colle le HTML qui contient les <a class="map-marker">.');
-    if(D.markers.length&&!confirm('Remplacer les repères actuels ?'))return;
-    D.types=r.types;D.markers=r.markers;D._o=r._o;D.image='';act=D.types[0]?.id||'';cur=-1;f('imp').hidden=true;all();
-    alert(`${r.markers.length} repères et ${r.types.length} types importés.\nAjoute maintenant l’image de la carte et les icônes depuis ton ordinateur : « Associer des images en lot » les reconnaît par leur nom de fichier d’origine (${r._o||'?'}…).`)};
-  f('mim').onclick=()=>pick(false,async([file])=>{D.image=await up('maps/images',file);delete D._o;f('mip').textContent=D.image;renderCanvas()});
-  f('msz').oninput=e=>{D.size=+e.target.value||26;renderCanvas()};
-  f('ta').onclick=()=>{const label=(prompt('Nom du type (ex. Dealer) :')||'').trim();if(!label)return;
-    let id=slug(label)||'type',k=2;while(D.types.some(t=>t.id===id))id=slug(label)+'-'+k++;
-    D.types.push({id,label,color:'#f59c0a',icon:'',link:''});act=id;renderTypes()};
-  f('tb').onclick=()=>pick(true,async files=>{
-    let n=await bulk(files,D.types,'maps/images',(t,p)=>t.icon=p);
-    const mf=files.find(x=>D._o&&x.name===D._o);if(mf){D.image=await up('maps/images',mf);delete D._o;n++}
-    alert(n+' image(s) associée(s).');all()});
-  f('tl').oninput=e=>{const k=e.target.dataset.k;if(k){D.types[+e.target.dataset.i][k]=e.target.value;renderCanvas()}};
-  f('tl').onchange=e=>{if(e.target.name==='at')act=D.types[+e.target.value].id};
-  f('tl').onclick=e=>{
-    const ic=e.target.dataset.ic,x=e.target.dataset.x;
-    if(ic!==undefined)pick(false,async([file])=>{D.types[+ic].icon=await up('maps/images',file);renderTypes();renderCanvas()});
-    if(x!==undefined&&confirm('Supprimer ce type et tous ses repères ?')){const id=D.types[+x].id;D.types.splice(+x,1);D.markers=D.markers.filter(m=>m.t!==id);cur=-1;act=D.types[0]?.id||'';all()}};
-  const cv=f('cvw');
-  cv.onpointerdown=e=>{const m=e.target.closest('.map-marker');if(!m)return;drag=+m.dataset.i;cur=drag;cv.setPointerCapture(e.pointerId);e.preventDefault()};
-  cv.onpointermove=e=>{if(drag<0)return;const [x,y]=pos(e),m=D.markers[drag],el=cv.querySelector(`[data-i="${drag}"]`);m.x=x;m.y=y;el.style.left=x+'%';el.style.top=y+'%'};
-  cv.onpointerup=()=>{if(drag>=0){drag=-1;renderCanvas();renderSel()}};
-  cv.onclick=e=>{if(e.target.id!=='ov')return;if(!act)return alert('Ajoute d’abord un type de repère.');
-    const [x,y]=pos(e);D.markers.push({t:act,x,y,label:'',link:''});cur=D.markers.length-1;renderCanvas();renderSel()};
-  f('msv').onclick=async()=>{
-    const n=f('mn').value.trim();if(!n)return alert('Donne un nom à la carte.');if(!D.image)return alert('Choisis l’image de la carte.');
-    await saveData('maps',n,D);mapTab(n);say('Enregistré ✓')};
-  f('mdel').onclick=async()=>{
-    const n=f('mn').value.trim();if(!n||!(S.m.maps||[]).includes(n)||!confirm('Supprimer la carte '+n+' ?'))return;
-    await rm(`maps/${slug(n)}.json`);delete S.map[slug(n)];S.m.maps=S.m.maps.filter(x=>x!==n);await saveM();mapTab()};
-  if(sel){f('ms').value=sel;load(sel)}else all()}
-
-function gridTab(sel=''){
-  const names=S.m.grids||[],f=id=>$('#'+id);
-  let D={cols:2,cards:[]},tm;
-  $('#ed').innerHTML=`<label>Grille de cartes</label><select id="gs"><option value="">➕ Nouvelle grille</option>${names.map(n=>`<option>${esc(n)}</option>`).join('')}</select> <button id="gi">📥 Importer un HTML existant</button>
-  <div id="imp" hidden><textarea id="it" rows="6" placeholder="Colle ici le HTML de tes cartes (les balises a.location-card)"></textarea><button class="pri" id="iok">Importer</button></div>
-  <div class="ed"><div>
-    <label>Nom — dans une page, écris [cards:Nom] sur une ligne seule</label><input id="gn">
-    <label>Colonnes</label><input id="gc" type="number" min="1" max="4" value="2">
-    <p><button id="ga">➕ Carte</button> <button id="gb">Associer des images en lot…</button></p>
-    <div id="cl"></div>
-    <p><button class="pri" id="gsv">Enregistrer</button> <button id="gdel">Supprimer la grille</button><span id="msg"></span></p>
-  </div><div><label>Aperçu</label><div class="pv" id="gp"></div></div></div>`;
-  const prev=()=>{f('gp').innerHTML=cardsHTML(D);fixImgs(f('gp'))},prevD=()=>{clearTimeout(tm);tm=setTimeout(prev,250)};
-  function list(){
-    f('cl').innerHTML=D.cards.map((c,i)=>`<div class="crow" data-i="${i}"><input data-k="title" value="${qa(c.title)}" placeholder="Titre"><input data-k="desc" value="${qa(c.desc)}" placeholder="Description"><input data-k="link" value="${qa(c.link)}" placeholder="Lien (page)"><input data-k="tag" value="${qa(c.tag)}" placeholder="Étiquette" size="9"><label><input type="checkbox" data-k="wide" ${c.wide?'checked':''}> large</label><button data-a="img">${c.img?'🖼✓':'🖼'}</button><button data-a="up">↑</button><button data-a="dn">↓</button><button data-a="x">✕</button></div>`).join('')||'<small>Aucune carte.</small>';
-    prev()}
-  function load(n){
-    D=n?clone(S.grid[slug(n)]||D):{cols:2,cards:[]};D.cards??=[];D.cols??=2;
-    f('gn').value=n;f('gn').readOnly=!!n;f('gc').value=D.cols;list()}
-  f('gs').onchange=e=>load(e.target.value);
-  f('gi').onclick=()=>f('imp').hidden=!f('imp').hidden;
-  f('iok').onclick=()=>{const r=importCards(f('it').value);if(!r.length)return alert('Aucune carte trouvée : colle le HTML qui contient les <a class="location-card">.');
-    if(D.cards.length&&!confirm('Remplacer les cartes actuelles ?'))return;
-    D.cards=r;f('imp').hidden=true;list();alert(`${r.length} cartes importées.\nUtilise « Associer des images en lot » pour ajouter leurs images : elles sont reconnues par le nom de fichier d’origine ou par le titre.`)};
-  f('gc').oninput=e=>{D.cols=+e.target.value||2;prevD()};
-  f('ga').onclick=()=>{D.cards.push({title:'',desc:'',img:'',link:'',tag:'',wide:false});list()};
-  f('gb').onclick=()=>pick(true,async files=>{const n=await bulk(files,D.cards,'cards/images',(c,p)=>c.img=p);alert(n+' image(s) associée(s).');list()});
-  f('cl').oninput=e=>{const k=e.target.dataset.k;if(!k)return;D.cards[+e.target.closest('.crow').dataset.i][k]=e.target.type==='checkbox'?e.target.checked:e.target.value;prevD()};
-  f('cl').onclick=e=>{
-    const a=e.target.dataset.a,row=e.target.closest('.crow');if(!a)return;const i=+row.dataset.i,c=D.cards;
-    if(a==='x')c.splice(i,1);
-    else if(a==='up'&&i>0)[c[i-1],c[i]]=[c[i],c[i-1]];
-    else if(a==='dn'&&i<c.length-1)[c[i+1],c[i]]=[c[i],c[i+1]];
-    else if(a==='img')return pick(false,async([file])=>{c[i].img=await up('cards/images',file);list()});
-    list()};
-  f('gsv').onclick=async()=>{const n=f('gn').value.trim();if(!n)return alert('Donne un nom à la grille.');
-    await saveData('cards',n,D);gridTab(n);say('Enregistré ✓')};
-  f('gdel').onclick=async()=>{const n=f('gn').value.trim();if(!n||!(S.m.grids||[]).includes(n)||!confirm('Supprimer la grille '+n+' ?'))return;
-    await rm(`cards/${slug(n)}.json`);delete S.grid[slug(n)];S.m.grids=S.m.grids.filter(x=>x!==n);await saveM();gridTab()};
-  if(sel){f('gs').value=sel;load(sel)}else list()}
-
 /* ---------- Démarrage ---------- */
-$('#open').onclick=async()=>{
-  if(!window.showDirectoryPicker){alert('Utilise Chrome ou Edge sur ordinateur pour ouvrir un dossier.');return}
-  try{S.dir=await showDirectoryPicker({mode:'readwrite'})}catch{return}
-  S.cache={};S.ok=true;
-  try{S.m=JSON.parse(await readText('wiki.json'))}catch{S.m={name:'Mon Wiki',pages:[],templates:[]}}
-  await loadTpl();await loadCSS();route()};
 $('#q').oninput=e=>{const v=e.target.value.trim();v.length>1?search(v):route()};
 addEventListener('hashchange',route);addEventListener('popstate',route);
 if(CLEAN){
@@ -652,7 +320,6 @@ addEventListener('scroll',()=>{if(!S.heads?.length)return;let cur=null;
   document.querySelectorAll('#side .sd').forEach(a=>a.classList.toggle('on',a.dataset.h===cur))},{passive:true});
 main.addEventListener('click',e=>{const b=e.target.closest('.map-legend button');if(!b)return;b.classList.toggle('off');
   b.closest('.map-box').querySelectorAll('.map-marker').forEach(m=>{if(m.dataset.t===b.dataset.t)m.hidden=b.classList.contains('off')})});
-$('#tools').hidden=!LOCAL;
 async function loadTpl(){S.tpl={};S.map={};S.grid={};
   for(const n of S.m.maps||[]){try{S.map[slug(n)]=JSON.parse(await readText(`maps/${slug(n)}.json`))}catch{}}
   for(const n of S.m.grids||[]){try{S.grid[slug(n)]=JSON.parse(await readText(`cards/${slug(n)}.json`))}catch{}}
